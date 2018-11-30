@@ -166,6 +166,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(0));
         }
 
+        /** 这里增加了一个 InboundHandler（ServerBootstrapAcceptor）,这样，当有 OP_ACCEPT 事件发生时，就会触发
+         * 该实例的channelRead方法，进而对客户端channel注册相关的事件并且将ServerBootstrap中的childHandler放到客户端
+         * 的 pipeline 中去 **/
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) throws Exception {
@@ -241,6 +244,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
+            // NioEventLoop 中select 到 OP_ACCEPT 事件时，会调用pipeline的fileChannelRead将数据（由于是OP_ACCEPT事件，
+            // 所以这里的数据实际上就是一个连接，被封装成了netty的Channel）发送到 ChannelHandler中
+            // 详细可以查看 NioEventLoop 的 processSelectedKey 方法， 使用的 unsafe 为 NioMessageUnsafe
             final Channel child = (Channel) msg;
 
             child.pipeline().addLast(childHandler);

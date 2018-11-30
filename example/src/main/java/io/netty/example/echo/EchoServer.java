@@ -16,11 +16,7 @@
 package io.netty.example.echo;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -72,9 +68,15 @@ public final class EchoServer {
 
             // Start the server.
             ChannelFuture f = b.bind(PORT).sync();
+            /**
+             * ChannelPromise f = (ChannelPromise)b.bind(PORT).sync();
+             * f.setSuccess() \ f.setFailure 两者都能够唤醒线程，这里的sync实际上就只是wait而已
+             */
 
             // Wait until the server socket is closed.
+            // channel close时会自动唤醒调用sync()所阻塞的线程（这里就是主线程）
             f.channel().closeFuture().sync();
+
         } finally {
             // Shut down all event loops to terminate all threads.
             bossGroup.shutdownGracefully();

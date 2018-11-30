@@ -44,6 +44,16 @@ final class PoolThreadCache {
     final PoolArena<ByteBuffer> directArena;
 
     // Hold the caches for the different size classes, which are tiny, small and normal.
+    /**
+     * 三种不同大小的缓存数组：
+     *   tiny 数组中的缓存大小为16B~512B(不包括512B)；
+     *   small 数组中的大小512B~8K(不包括8k)；
+     *   normal 数组中的大小为 8K ~ 32K
+     * MemoryRegionCache中通过 Queue 来保存可以被分配的缓存数据，单个MemoryRegionCache Queue中的所有缓存大小都是一样的
+     * 即：tinySubPageCaches 数组：  16B, 32B, 48B, ..., 480B, 496B  -  32个元素，下标为0的元素无用
+     *    smallSubPageCaches 数组： 512B, 1K, 2K, 4K                -  4个元素
+     *    normalSubPageCaches 数组：8K, 16K, 32K                    -  3个元素
+     */
     private final MemoryRegionCache<byte[]>[] tinySubPageHeapCaches;
     private final MemoryRegionCache<byte[]>[] smallSubPageHeapCaches;
     private final MemoryRegionCache<ByteBuffer>[] tinySubPageDirectCaches;
@@ -366,6 +376,10 @@ final class PoolThreadCache {
         }
     }
 
+    /**
+     * size 用于标识 MemoryRegionCache 中 Cache 的大小，Queue 中保存的则是实际的Cache
+     * @param <T>
+     */
     private abstract static class MemoryRegionCache<T> {
         private final int size;
         private final Queue<Entry<T>> queue;

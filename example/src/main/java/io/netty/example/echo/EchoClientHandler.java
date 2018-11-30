@@ -46,12 +46,18 @@ public class EchoClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        ctx.write(msg);
+        ByteBuf buf = (ByteBuf)msg;
+        byte[] data = new byte[buf.writerIndex()];
+        buf = buf.copy(0, buf.writerIndex());
+        buf.readBytes(data);
+
+        System.out.println(new String(data));
+//        ctx.write(msg);
     }
 
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) {
-       ctx.flush();
+//        ctx.flush();
     }
 
     @Override

@@ -470,6 +470,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
+            /** 绑定Eventloop **/
             AbstractChannel.this.eventLoop = eventLoop;
 
             if (eventLoop.inEventLoop()) {
@@ -509,12 +510,16 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 // user may already fire events through the pipeline in the ChannelFutureListener.
                 pipeline.invokeHandlerAddedIfNeeded();
 
+                logger.info(">>>>>>>>>> before safeSetSuccess() <<<<<<<<<<");
                 safeSetSuccess(promise);
+                logger.info(">>>>>>>> fireChannelRegistered() <<<<<<<<<");
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
                 if (isActive()) {
                     if (firstRegistration) {
+                        // 如果是 SocketChannel，则isActive()则是验证其是否处于连接状态，随后进入到下面的这个
+                        // fireChannelActive()方法去注册OP_READ 事件
                         pipeline.fireChannelActive();
                     } else if (config().isAutoRead()) {
                         // This channel was registered before and autoRead() is set. This means we need to begin read
@@ -553,6 +558,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         "address (" + localAddress + ") anyway as requested.");
             }
 
+            /** isActive() ：
+             * 对于ServerSocketChannel，检测其是否绑定端口；
+             * 注：这里的处理只针对ServerSocketChannel，
+             * SocketChannel的处理是在 AbstractNioChannel.finishConnect（->AbstractNioUnsafe.fulfillConnectPromise）
+             * 方法中进行 **/
             boolean wasActive = isActive();
             try {
                 doBind(localAddress);
@@ -562,10 +572,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
+            /** ServerSocketChannel绑定端口成功后触发channelActive事件 **/
             if (!wasActive && isActive()) {
                 invokeLater(new Runnable() {
                     @Override
                     public void run() {
+                        /** 这里通过pipeline 最终会进入到 AbstractNioChannel.doBeginRead方法，该方法会注册nio selector OP_ACCEPT事件 **/
                         pipeline.fireChannelActive();
                     }
                 });

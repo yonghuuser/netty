@@ -235,6 +235,7 @@ public final class ChannelOutboundBuffer {
     }
 
     /**
+     * 消息写入到java nio的channel中之后，会调用到这个方法，以清理内存
      * Will remove the current message, mark its {@link ChannelPromise} as success and return {@code true}. If no
      * flushed message exists at the time this method is called it will return {@code false} to signal that no more
      * messages are ready to be handled.
@@ -254,6 +255,7 @@ public final class ChannelOutboundBuffer {
 
         if (!e.cancelled) {
             // only release message, notify and decrement if it was not canceled before.
+            // 释放消息对应的内存
             ReferenceCountUtil.safeRelease(msg);
             safeSuccess(promise);
             decrementPendingOutboundBytes(size, false, true);

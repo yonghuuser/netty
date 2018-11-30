@@ -251,6 +251,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
                 }
 
                 boolean wasActive = isActive();
+                /** 执行connect，会在SelectionKey上注册 OP_CONNECT 事件，故对于实际的OP_CONNECT事件的处理
+                 * 实际上是在NioEventLoop中完成的 **/
                 if (doConnect(remoteAddress, localAddress)) {
                     fulfillConnectPromise(promise, wasActive);
                 } else {

@@ -185,7 +185,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     public PooledByteBufAllocator(boolean preferDirect, int nHeapArena, int nDirectArena, int pageSize, int maxOrder,
                                   int tinyCacheSize, int smallCacheSize, int normalCacheSize) {
         this(preferDirect, nHeapArena, nDirectArena, pageSize, maxOrder, tinyCacheSize, smallCacheSize,
-                normalCacheSize, DEFAULT_USE_CACHE_FOR_ALL_THREADS, DEFAULT_DIRECT_MEMORY_CACHE_ALIGNMENT);
+                normalCacheSize, DEFAULT_USE_CACHE_FOR_ALL_THREADS /** 默认为true **/, DEFAULT_DIRECT_MEMORY_CACHE_ALIGNMENT);
     }
 
     public PooledByteBufAllocator(boolean preferDirect, int nHeapArena,
@@ -299,6 +299,10 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
 
     @Override
     protected ByteBuf newHeapBuffer(int initialCapacity, int maxCapacity) {
+        // threadCache : an instance of class PoolThreadLocalCache
+        // 每个线程都持有一个 PoolThreadCache，get的返回值必定不会为null。
+        // 会在 PooledByteBufAllocator.heapArenas 中选择一个（使用量最少的） heapArena 保存在 PoolThreadLocalCache中，
+        // 使用量最少的意思是 该heapArena 对应的 PoolThreadCache 数量最少
         PoolThreadCache cache = threadCache.get();
         PoolArena<byte[]> heapArena = cache.heapArena;
 

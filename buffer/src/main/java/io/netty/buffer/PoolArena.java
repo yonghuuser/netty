@@ -28,6 +28,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.Math.max;
 
+/**
+ * 内存分配中心
+ * @param <T>
+ */
 abstract class PoolArena<T> implements PoolArenaMetric {
     static final boolean HAS_UNSAFE = PlatformDependent.hasUnsafe();
 
@@ -41,10 +45,12 @@ abstract class PoolArena<T> implements PoolArenaMetric {
 
     final PooledByteBufAllocator parent;
 
+    // 下面4个值均从PooledByteBufAllocator中传入
     private final int maxOrder;
     final int pageSize;
     final int pageShifts;
     final int chunkSize;
+
     final int subpageOverflowMask;
     final int numSmallSubpagePools;
     final int directMemoryCacheAlignment;
@@ -52,6 +58,10 @@ abstract class PoolArena<T> implements PoolArenaMetric {
     private final PoolSubpage<T>[] tinySubpagePools;
     private final PoolSubpage<T>[] smallSubpagePools;
 
+    // 保存PoolChunk，同一个PoolChunkList中的PoolChunk使用率都是在同样的范围内
+    // 刚创建的PoolChunk均被放在qInit中，随着PoolChunk的使用率逐渐提高而逐渐向后移动（000-025-050-075-100）
+    // 在free内存时会将PoolChunk向前移动，向前的移动直接通过parent字段找到使用率更低的ChunkList。
+    // 注：在将Chunk放到ChunkList中时，会设置Chunk.parent的值（此field指向ChunkList）。
     private final PoolChunkList<T> q050;
     private final PoolChunkList<T> q025;
     private final PoolChunkList<T> q000;
@@ -103,6 +113,7 @@ abstract class PoolArena<T> implements PoolArenaMetric {
             smallSubpagePools[i] = newSubpagePoolHead(pageSize);
         }
 
+        /** 可以看到，这里定义的使用率范围均有重合，原因是为了防止PoolChunk中的内存被使用和释放时导致其在两个List中来回移动 **/
         q100 = new PoolChunkList<T>(this, null, 100, Integer.MAX_VALUE, chunkSize);
         q075 = new PoolChunkList<T>(this, q100, 75, 100, chunkSize);
         q050 = new PoolChunkList<T>(this, q075, 50, 100, chunkSize);
@@ -142,8 +153,8 @@ abstract class PoolArena<T> implements PoolArenaMetric {
     abstract boolean isDirect();
 
     PooledByteBuf<T> allocate(PoolThreadCache cache, int reqCapacity, int maxCapacity) {
-        PooledByteBuf<T> buf = newByteBuf(maxCapacity);
-        allocate(cache, buf, reqCapacity);
+        PooledByteBuf<T> buf = newByteBuf(maxCapacity); // 这里是先创建一个PooledByteBuf，但是内部没有对应的内存空间
+        allocate(cache, buf, reqCapacity); // 这里才是实际的分配内存
         return buf;
     }
 
@@ -171,6 +182,15 @@ abstract class PoolArena<T> implements PoolArenaMetric {
         return (normCapacity & 0xFFFFFE00) == 0;
     }
 
+    /** 这里的cache, chunk以及 ByteBuf 回收之间的关联与区别：
+     *  首先，可以认为 PooledByteBuf 中 这个 Pooled 的含义是 Chunk，即内存池是由Chunk组成的，从 PooledByteBuf 中申请内存时，
+     *  直接会从内存中获取一个 Chunk 大小的连续内存块（默认是16M）。Chunk 又被分为多个 Page 进行管理（一个Page默认8K，实际上Page还可以划分为
+     *  subPage，与Page的区别为标记 Page 是否可用 使用的是一个 Array[逻辑上是组成了一个二叉树]，而标记SubPage是否可用则是使用的一个bitMap)，
+     *  当拿到了一个Chunk之后，实际的 PooledByteBuf 所对应的内存区域只是 Chunk中的一个部分。
+     *  当 PooledByteBuf 被使用完，release PooledByteBuf 时，首先会将这部分内存放到 cache（PoolThreadCache中的3种MemoryRegionCache）中去，
+     *  cache 的容量是有限的，当无法将要回收的 PooledByteBuf 放入 cache 中时，就会对 PooledByteBuf 对应的内存块进行处理，标志该内存块可用，即将
+     *  无法放入 cache 中的 PooledByteBuf 对应的内存归还到 Chunk 中去（具体可以查看PooledByteBuf.deallocate()方法）。
+     * **/
     private void allocate(PoolThreadCache cache, PooledByteBuf<T> buf, final int reqCapacity) {
         final int normCapacity = normalizeCapacity(reqCapacity);
         if (isTinyOrSmall(normCapacity)) { // capacity < pageSize
@@ -178,7 +198,7 @@ abstract class PoolArena<T> implements PoolArenaMetric {
             PoolSubpage<T>[] table;
             boolean tiny = isTiny(normCapacity);
             if (tiny) { // < 512
-                if (cache.allocateTiny(this, buf, reqCapacity, normCapacity)) {
+                if (cache.allocateTiny(this, buf, reqCapacity, normCapacity)) { // 先从 cache 中分配内存给 PooledByteBuf
                     // was able to allocate out of the cache so move on
                     return;
                 }
@@ -666,8 +686,8 @@ abstract class PoolArena<T> implements PoolArenaMetric {
 
     static final class HeapArena extends PoolArena<byte[]> {
 
-        HeapArena(PooledByteBufAllocator parent, int pageSize, int maxOrder,
-                int pageShifts, int chunkSize, int directMemoryCacheAlignment) {
+        HeapArena(PooledByteBufAllocator parent, int pageSize /*默认为8K，详见PooledByteBufAllocator.DEFAULT_PAGE_SIZE*/, int maxOrder,
+                int pageShifts, int chunkSize /*默认为16M，详见PooledByteBufAllocator（PAGE_SIZE左移MAX_ORDER位）*/, int directMemoryCacheAlignment) {
             super(parent, pageSize, maxOrder, pageShifts, chunkSize,
                     directMemoryCacheAlignment);
         }
@@ -683,6 +703,7 @@ abstract class PoolArena<T> implements PoolArenaMetric {
 
         @Override
         protected PoolChunk<byte[]> newChunk(int pageSize, int maxOrder, int pageShifts, int chunkSize) {
+            // chunkSize - 16M，新增的Chunk一次都是分配16M的空间
             return new PoolChunk<byte[]>(this, newByteArray(chunkSize), pageSize, maxOrder, pageShifts, chunkSize, 0);
         }
 

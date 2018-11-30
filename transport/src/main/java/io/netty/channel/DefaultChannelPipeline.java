@@ -1278,7 +1278,9 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
 
         @Override
-        public void channelRegistered(ChannelHandlerContext ctx) throws Exception { }
+        public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+            System.out.println("---------------------------------------------------");
+        }
 
         @Override
         public void channelUnregistered(ChannelHandlerContext ctx) throws Exception { }
@@ -1443,6 +1445,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         private void readIfIsAutoRead() {
             if (channel.config().isAutoRead()) {
+                /** 这里会触发HeadContext 的read方法 -> unsafe.beginRead()，从而注册channel 感兴趣的事件 **/
                 channel.read();
             }
         }

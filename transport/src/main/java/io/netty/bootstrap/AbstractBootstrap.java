@@ -16,20 +16,11 @@
 
 package io.netty.bootstrap;
 
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPromise;
-import io.netty.channel.DefaultChannelPromise;
-import io.netty.channel.EventLoop;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.ReflectiveChannelFactory;
-import io.netty.util.internal.SocketUtils;
+import io.netty.channel.*;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.GlobalEventExecutor;
+import io.netty.util.internal.SocketUtils;
 import io.netty.util.internal.StringUtil;
 import io.netty.util.internal.logging.InternalLogger;
 
@@ -279,12 +270,15 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        /** initAndRegister返回时，AbstractNioMessageChannel 与 eventLoop已经绑定 **/
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
             return regFuture;
         }
 
+        /** 等待channel注册成功，随后进入到 doBind0(...)方法，此方法会在最后进入到HeadContext去绑定端口，
+         * 并在绑定成功之后传播ChannelActive事件，随后注册OP_ACCEPT事件到selector **/
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
@@ -293,6 +287,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         } else {
             // Registration future is almost always fulfilled already, but just in case it's not.
             final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
+            System.out.println(Thread.currentThread().getName() + " --  Pending registration");
             regFuture.addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
@@ -317,7 +312,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
+            // 创建一个 NioServerSocketChannel
             channel = channelFactory.newChannel();
+            /** init会把配置好的ChannelHandler放入到pipeline中去（ServerBootstrap.handler(...)设置的handler）**/
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -330,6 +327,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
+        /** 这里的register 会 将传入的Channel与NioEventLoop进行绑定，并触发 InboundHandler 的 channelRegistered方法，从而将底层的
+         * nioChannel 在 NioEventLoop 中的selector中进行注册，而NioEventLoop 不断进行select并且处理select获取到的事件 **/
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
@@ -359,6 +358,14 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
+        /** 上面注释的意思是这个方法会在 channelRegistered() 之前调用? 原因?
+         * 此方法在 doBind(...)中被调用，调用分两种情况，第一种是 Channel 的 register已经完成（regFuture.isDone()），
+         * 则直接调用 doBind()，对于这种情况，无法保证此方法必定会在 channelRegistered 之前。
+         * 当regFuture是尚未完成的，会在regFuture中增加一个listener，用于监听regFuture的完成事件，
+         * 当regFuture完成时，触发Promise的complete 事件（operationComplete(...)方法），调用当前方法（doBind0），
+         * 随后再会触发channelRegistered事件（即调用pipeline.fireChannelRegistered）
+         ***/
+        System.out.println(Thread.currentThread().getName() + " -- this method is before channelRegistered()");
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {

@@ -107,6 +107,14 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
     }
 
     /**
+     * 这里直接是调用ByteBuffer 中的 Cleaner.clean方法来完成的。
+     *
+     * 无论是那种类型的ByteBuf，在read时，读取完之后需要用户手动去调用内存释放的方法；
+     * 而在write时，netty已经做了处理，会去调用消息的release方法以释放内存
+     * 
+     * jdk 底层的 DirectByteBuffer 就是借助 Cleaner 来进行内存的回收的，Cleaner 继承自 PhantomReference，
+     * 构造时传入 DirectByteBuffer 作为被引用对象，当 DirectByteBuffer 被回收时，会触发Cleaner的 clean方法（可参考
+     * java.lang.ref.Reference.tryHandlePending()，此方法会由一个ReferenceHandler线程来运行）
      * Free a direct {@link ByteBuffer}
      */
     protected void freeDirect(ByteBuffer buffer) {

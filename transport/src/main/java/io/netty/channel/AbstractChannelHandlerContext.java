@@ -146,6 +146,8 @@ abstract class AbstractChannelHandlerContext extends DefaultAttributeMap
     private void invokeChannelRegistered() {
         if (invokeHandler()) {
             try {
+                /** 这里会从pipeline的head开始，触发channelRegistered 方法，head（HeadContext）的handler()方法
+                 * 会再调用到本类的 fireChannelRegistered()方法，这个方法会遍历pipeline中的handler，只处理 InboundHandler **/
                 ((ChannelInboundHandler) handler()).channelRegistered(this);
             } catch (Throwable t) {
                 notifyHandlerException(t);

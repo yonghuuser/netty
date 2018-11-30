@@ -38,6 +38,30 @@ import java.util.Set;
  * {@link ThreadLocal}.
  * </p>
  *
+ * <p>
+ * ThreadLocal 使用的是 ThreadLocal 本身计算的 hashCode作为 InternalMap 的key，最终实现的结构是一个hash table，
+ * 而当前类则只是简单的 array 来实现 ThreadLocal变量保存，每个FastThreadLocal 对应于一个index，在所有的
+ * InternalThreadLocalMap中，FastThreadLocal实例持有的线程变量保存在array[index]中。
+ * </p><p>
+ * 为什么在原生的Thread中，会使用一个Map来保存数据，原因是虽然一个ThreadLocal只保存一个值，但是可以定义多个ThreadLocal实例。
+
+ </p><p>Let’s look at a real example.</p>
+
+    <p>Code running in Thread 1 calls set() on ThreadLocal instance “A” with value "123"</p>
+    <p>Code running in Thread 2 calls set() on ThreadLocal instance “A” with value "234"</p>
+    <p>Code running in Thread 1 calls set() on ThreadLocal instance “B” with value "345"</p>
+    <p>And this is the end result:
+
+    <p>Thread 1 (the instance)'s field ThreadLocalMap (m1) has two entries:</p>
+
+    <p>          Key	Value</p>
+    <p>ThreadLocal A	"123"</p>
+    <p>ThreadLocal B	"345"</p>
+    <p>Thread 2 (the instance)’s field ThreadLocalMap (m2) has one entry:</p>
+
+    <p>          Key	Value</p>
+    <p>ThreadLocal A	"234"</p>
+ *
  * @param <V> the type of the thread-local variable
  * @see ThreadLocal
  */

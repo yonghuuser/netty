@@ -100,6 +100,7 @@ package io.netty.buffer;
  * depthMap[id]= x  indicates that the first node which is free to be allocated is at depth x (from root)
  */
 final class PoolChunk<T> implements PoolChunkMetric {
+/** PoolChunk 维护了实际的内存块，每次向操作系统申请内存都是以PoolChunk为单位进行申请，Page以及SubPage则只是持有了Chunk的引用并且限定访问范围 **/
 
     private static final int INTEGER_SIZE_MINUS_ONE = Integer.SIZE - 1;
 
@@ -212,9 +213,9 @@ final class PoolChunk<T> implements PoolChunkMetric {
 
     long allocate(int normCapacity) {
         if ((normCapacity & subpageOverflowMask) != 0) { // >= pageSize
-            return allocateRun(normCapacity);
+            return allocateRun(normCapacity); // 分配多个Page 到 PooledByteBuf 中去
         } else {
-            return allocateSubpage(normCapacity);
+            return allocateSubpage(normCapacity); // 将 page 再划分为 subPage，并分配 subPage 到PooledByteBuf 中去
         }
     }
 
@@ -377,7 +378,7 @@ final class PoolChunk<T> implements PoolChunkMetric {
     void initBuf(PooledByteBuf<T> buf, long handle, int reqCapacity) {
         int memoryMapIdx = memoryMapIdx(handle);
         int bitmapIdx = bitmapIdx(handle);
-        if (bitmapIdx == 0) {
+        if (bitmapIdx == 0) { // 为0表示分配的内存空间大于一个Page的大小，否则分配给 buf 的内存为一个SubPage
             byte val = value(memoryMapIdx);
             assert val == unusable : String.valueOf(val);
             buf.init(this, handle, runOffset(memoryMapIdx) + offset, reqCapacity, runLength(memoryMapIdx),
