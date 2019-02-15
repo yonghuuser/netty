@@ -72,6 +72,8 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
+                        // 对于NioServerSocketChannel，这里直接将连进来的客户端存放到readBuf中，
+                        // 下面的fireChannelRead方法会通知pipeline中的ServerBootstrapAcceptor，对接入的客户端Channel进行处理
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;

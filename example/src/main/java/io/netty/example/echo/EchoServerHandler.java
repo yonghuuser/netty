@@ -40,6 +40,7 @@ public class EchoServerHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) {
         System.out.println("...............");
+        // flush后，数据才真正的写入（实际的IO发生在flush）
         ctx.flush();
     }
 
