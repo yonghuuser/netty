@@ -131,6 +131,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     NioEventLoop(NioEventLoopGroup parent, Executor executor, SelectorProvider selectorProvider,
                  SelectStrategy strategy, RejectedExecutionHandler rejectedExecutionHandler) {
+        /** 一个NioEventLoop 绑定一个java nio selector **/
         super(parent, executor, false, DEFAULT_MAX_PENDING_TASKS, rejectedExecutionHandler);
         if (selectorProvider == null) {
             throw new NullPointerException("selectorProvider");
@@ -451,8 +452,10 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 final int ioRatio = this.ioRatio;
                 if (ioRatio == 100) {
                     try {
+                        // 处理select出来的io事件
                         processSelectedKeys();
                     } finally {
+                        // 用于处理其他线程扔到 TaskQueue 中的任务
                         // Ensure we always run tasks.
                         runAllTasks();
                     }

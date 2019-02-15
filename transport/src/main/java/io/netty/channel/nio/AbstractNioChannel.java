@@ -417,6 +417,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         readPending = true;
 
+        /** 这里将Channel感兴趣的操作注册到Selector上，对于NioServerSocketChannel（构造函数中传入的是OP_ACCEPT），这个值为OP_ACCEPT **/
         final int interestOps = selectionKey.interestOps();
         if ((interestOps & readInterestOp) == 0) {
             selectionKey.interestOps(interestOps | readInterestOp);

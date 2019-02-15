@@ -883,9 +883,13 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private void doStartThread() {
         assert thread == null;
+        // 这个executor是 ThreadPerTaskExecutor 实例，该实例的execute方法，实际上是创建了一个FastThreadLocalThread，
+        // 然后在该FastThreadLocalThread 线程中执行 Runnable，所以下面的run()方法中，thread保存的其实就是新建的这个
+        // FastThreadLocalThread。
         executor.execute(new Runnable() {
             @Override
             public void run() {
+                // thread保存的是一个FastThreadLocalThread实例，原因见上面
                 thread = Thread.currentThread();
                 if (interrupted) {
                     thread.interrupt();
@@ -894,6 +898,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                 boolean success = false;
                 updateLastExecutionTime();
                 try {
+                    // 执行 NioEventLoop 的 run()方法
                     SingleThreadEventExecutor.this.run();
                     success = true;
                 } catch (Throwable t) {

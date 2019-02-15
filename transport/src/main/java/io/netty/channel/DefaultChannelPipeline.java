@@ -1422,7 +1422,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
             ctx.fireChannelActive();
-
+            // channel 注册事件
             readIfIsAutoRead();
         }
 

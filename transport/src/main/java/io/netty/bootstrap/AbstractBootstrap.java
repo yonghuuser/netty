@@ -329,6 +329,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         /** 这里的register 会 将传入的Channel与NioEventLoop进行绑定，并触发 InboundHandler 的 channelRegistered方法，从而将底层的
          * nioChannel 在 NioEventLoop 中的selector中进行注册，而NioEventLoop 不断进行select并且处理select获取到的事件 **/
+        /** 这里也可以发现一个Channel对应的是一个NioEventLoop，即一个Channel对应一个线程 **/
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
@@ -366,6 +367,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
          * 随后再会触发channelRegistered事件（即调用pipeline.fireChannelRegistered）
          ***/
         System.out.println(Thread.currentThread().getName() + " -- this method is before channelRegistered()");
+        // eventLoop()返回的是 initAndRegister 中绑定的eventLoop，
+        // 对于ServerBootstrap，这里对应的就是NioEventLoop（具体可以查看NioEventLoopGroup的构造方法，
+        // 由于其调用了super,追踪到MultithreadEventExecutorGroup，可以发现children字段中的实例为NioEventLoop类型），
+        // 这里execute时，如果NioEventLoop还未启动，则会启动NioEventLoop
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {
