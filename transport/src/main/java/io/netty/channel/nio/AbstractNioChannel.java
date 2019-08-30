@@ -422,6 +422,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         if ((interestOps & readInterestOp) == 0) {
             selectionKey.interestOps(interestOps | readInterestOp);
         }
+        logger.info("{} -- interest read opts {}, OP_ACCEPT: {}", Thread.currentThread().getName(), readInterestOp, SelectionKey.OP_ACCEPT);
     }
 
     /**

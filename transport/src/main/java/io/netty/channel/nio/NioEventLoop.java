@@ -400,6 +400,9 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     @Override
     protected void run() {
+        // NioEventLoop中的Selector是通过openSelector方法来获取的，这里得到的Selector的 selectedKeys字段
+        // 通过反射被替换成了SelectedSelectionKeySet，即本实例中的 selectedKeys
+        System.out.println(Thread.currentThread().getName() + " --- 开始执行啦~~");
         for (;;) {
             try {
                 switch (selectStrategy.calculateStrategy(selectNowSupplier, hasTasks())) {

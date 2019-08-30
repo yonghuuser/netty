@@ -1279,7 +1279,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
-            System.out.println("---------------------------------------------------");
+            System.out.println(Thread.currentThread().getName() + " -- DefaultChannelPipeline # channelRegistered");
         }
 
         @Override
@@ -1385,6 +1385,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void read(ChannelHandlerContext ctx) {
+            logger.info("Head Context --> read");
             unsafe.beginRead();
         }
 
@@ -1423,6 +1424,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
             ctx.fireChannelActive();
             // channel 注册事件
+            logger.info("Head Context --> channel Active");
             readIfIsAutoRead();
         }
 

@@ -270,13 +270,23 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
-        /** initAndRegister返回时，AbstractNioMessageChannel 与 eventLoop已经绑定 **/
+        /** initAndRegister返回时，AbstractNioMessageChannel 与 eventLoop已经绑定（Pipeline中已经放入的相关的回调接口） **/
+        /** 对于 ServerBootstrap 而言，Channel 在 initAndRegister 的 init() 方法中往pipeline
+         *  里增加了一个 ServerBootstrapAcceptor， 在 initAndRegister 的 config().group().register(channel) 语句中
+         *  选择了一个NioEventLoop与channel绑定，register方法也会启动EventLoop **/
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
             return regFuture;
         }
 
+        while(!regFuture.isDone()) {
+            try {
+                Thread.sleep(1);
+            }catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
         /** 等待channel注册成功，随后进入到 doBind0(...)方法，此方法会在最后进入到HeadContext去绑定端口，
          * 并在绑定成功之后传播ChannelActive事件，随后注册OP_ACCEPT事件到selector **/
         if (regFuture.isDone()) {
@@ -314,7 +324,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         try {
             // 创建一个 NioServerSocketChannel
             channel = channelFactory.newChannel();
-            /** init会把配置好的ChannelHandler放入到pipeline中去（ServerBootstrap.handler(...)设置的handler）**/
+            /** init会把配置好的ChannelHandler放入到pipeline中去（ServerBootstrap.handler(...)设置的handler），
+             *  这里是把Handler放到了pipeline，但是相关的回调方法并未触发 **/
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -361,7 +372,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         // the pipeline in its channelRegistered() implementation.
         /** 上面注释的意思是这个方法会在 channelRegistered() 之前调用? 原因?
          * 此方法在 doBind(...)中被调用，调用分两种情况，第一种是 Channel 的 register已经完成（regFuture.isDone()），
-         * 则直接调用 doBind()，对于这种情况，无法保证此方法必定会在 channelRegistered 之前。
+         * 则直接调用 doBind()，对于这种情况，无法保证此方法必定会在 channelRegistered 之前(可以通过在上层方法阻塞
+         * 等待regFurture完成来看输出。这里的先后顺序对功能没影响，channel的初始化以及注册等操作都是在同一个线程中完成的）。
          * 当regFuture是尚未完成的，会在regFuture中增加一个listener，用于监听regFuture的完成事件，
          * 当regFuture完成时，触发Promise的complete 事件（operationComplete(...)方法），调用当前方法（doBind0），
          * 随后再会触发channelRegistered事件（即调用pipeline.fireChannelRegistered）
@@ -371,7 +383,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         // 对于ServerBootstrap，这里对应的就是NioEventLoop（具体可以查看NioEventLoopGroup的构造方法，
         // 由于其调用了super,追踪到MultithreadEventExecutorGroup，可以发现children字段中的实例为NioEventLoop类型），
         // 这里execute时，如果NioEventLoop还未启动，则会启动NioEventLoop
-        channel.eventLoop().execute(new Runnable() {
+        Runnable bindTask = new Runnable() {
             @Override
             public void run() {
                 if (regFuture.isSuccess()) {
@@ -380,7 +392,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
                     promise.setFailure(regFuture.cause());
                 }
             }
-        });
+        };
+        System.out.println(" bindTask : >>>   " + bindTask);
+        channel.eventLoop().execute(bindTask);
     }
 
     /**

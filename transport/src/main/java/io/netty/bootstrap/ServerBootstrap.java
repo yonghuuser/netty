@@ -178,6 +178,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                     pipeline.addLast(handler);
                 }
 
+                System.out.println(Thread.currentThread().getName() + " -- 增加往pipeline里放ServerBootstrapAcceptor 的任务");
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
@@ -244,6 +245,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
+            System.out.println(Thread.currentThread().getName() + " --- accept connect: " + msg);
             // NioEventLoop 中select 到 OP_ACCEPT 事件时，会调用pipeline的fileChannelRead将数据（由于是OP_ACCEPT事件，
             // 所以这里的数据实际上就是一个连接，被封装成了netty的Channel）发送到 ChannelHandler中
             // 详细可以查看 NioEventLoop 的 processSelectedKey 方法， 使用的 unsafe 为 NioMessageUnsafe

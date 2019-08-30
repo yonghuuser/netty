@@ -392,6 +392,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     protected boolean runAllTasks(long timeoutNanos) {
         fetchFromScheduledTaskQueue();
         Runnable task = pollTask();
+        System.out.println(Thread.currentThread().getName() + "  -- poll 到了任务：" + task);
         if (task == null) {
             afterRunningAllTasks();
             return false;
@@ -770,6 +771,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     @Override
     public void execute(Runnable task) {
+        System.out.println(Thread.currentThread().getName() + " --  EventLoop execute task ::::: " + task);
         if (task == null) {
             throw new NullPointerException("task");
         }
@@ -883,6 +885,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private void doStartThread() {
         assert thread == null;
+        System.out.println("not in eventLoop, starting...");
         // 这个executor是 ThreadPerTaskExecutor 实例，该实例的execute方法，实际上是创建了一个FastThreadLocalThread，
         // 然后在该FastThreadLocalThread 线程中执行 Runnable，所以下面的run()方法中，thread保存的其实就是新建的这个
         // FastThreadLocalThread。
@@ -891,6 +894,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             public void run() {
                 // thread保存的是一个FastThreadLocalThread实例，原因见上面
                 thread = Thread.currentThread();
+                System.out.println(Thread.currentThread().getName() + " -- 创建了EventLoop线程");
                 if (interrupted) {
                     thread.interrupt();
                 }

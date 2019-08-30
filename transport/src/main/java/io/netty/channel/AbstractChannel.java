@@ -477,12 +477,14 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 register0(promise);
             } else {
                 try {
-                    eventLoop.execute(new Runnable() {
+                    Runnable registerTask = new Runnable() {
                         @Override
                         public void run() {
                             register0(promise);
                         }
-                    });
+                    };
+                    System.out.println("registerTask : >>>> " + registerTask);
+                    eventLoop.execute(registerTask);
                 } catch (Throwable t) {
                     logger.warn(
                             "Force-closing a channel whose registration task was not accepted by an event loop: {}",
@@ -508,11 +510,13 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
+                // 这里会去调用initChannel，从而进入到 io.netty.channel.ChannelInitializer # initChannel 方法中（这个
+                // ChannelInitializer 是在 ServerBootstrap 中放到 Channel 的pipeline 中去的）
                 pipeline.invokeHandlerAddedIfNeeded();
 
                 logger.info(">>>>>>>>>> before safeSetSuccess() <<<<<<<<<<");
                 safeSetSuccess(promise);
-                logger.info(">>>>>>>> fireChannelRegistered() <<<<<<<<<");
+                logger.info(">>>>>>>> 开始调用fireChannelRegistered() -- isActive? {} <<<<<<<<<", isActive());
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
@@ -520,6 +524,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     if (firstRegistration) {
                         // 如果是 SocketChannel，则isActive()则是验证其是否处于连接状态，随后进入到下面的这个
                         // fireChannelActive()方法去注册OP_READ 事件
+                        // 对于 ServerSocketChannel ，isActive() 为false，原因是bind任务还没有进来（bind任务要等待
+                        // register 完成之后才会被发送到EventLoop）
                         pipeline.fireChannelActive();
                     } else if (config().isAutoRead()) {
                         // This channel was registered before and autoRead() is set. This means we need to begin read
@@ -565,6 +571,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
              * 方法中进行 **/
             boolean wasActive = isActive();
             try {
+                logger.info("绑定了端口 {}", localAddress);
                 doBind(localAddress);
             } catch (Throwable t) {
                 safeSetFailure(promise, t);
@@ -574,13 +581,15 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             /** ServerSocketChannel绑定端口成功后触发channelActive事件 **/
             if (!wasActive && isActive()) {
-                invokeLater(new Runnable() {
+                Runnable task = new Runnable() {
                     @Override
                     public void run() {
                         /** 这里通过pipeline 最终会进入到 AbstractNioChannel.doBeginRead方法，该方法会注册nio selector OP_ACCEPT事件 **/
                         pipeline.fireChannelActive();
                     }
-                });
+                };
+                logger.info("提交了任务，pipeline.fireChannelActive() --> {}", task);
+                invokeLater(task);
             }
 
             safeSetSuccess(promise);
