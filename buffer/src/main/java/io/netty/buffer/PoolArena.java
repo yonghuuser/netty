@@ -55,6 +55,11 @@ abstract class PoolArena<T> implements PoolArenaMetric {
     final int numSmallSubpagePools;
     final int directMemoryCacheAlignment;
     final int directMemoryCacheAlignmentMask;
+    // tinySubpagePools 其实类似于一个 hashMap 的结构，其中 head 节点用于查找，根据 PoolArena.findSubpagePoolHead方法可知，
+    // tinySubpagePools 中同一个（head）节点下的 PoolSubpage 链表的容量都是一样的，要申请的 PoolSubpage 容量（reqCapacity）与
+    // 索引的对应关系为 normalizeCapacity(reqCapacity) >>> 4 （normalizeCapacity 得到reqCapacity离16的倍数最近的值，左移4就是除以16）
+    // 故索引与容量的对应关系为 tinySubpagePools[1] -> 16 字节, tinySubpagePools[2] -> 32 字节, tinySubpagePools[3] -> 48 字节,
+    //  tinySubpagePools[31] -> 496 字节 （索引为0的元素不使用）
     private final PoolSubpage<T>[] tinySubpagePools;
     private final PoolSubpage<T>[] smallSubpagePools;
 
