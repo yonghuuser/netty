@@ -23,7 +23,6 @@ public class NIOClient {
         socketChannel.connect(new InetSocketAddress("127.0.0.1", 8000));
         socketChannel.register(selector, SelectionKey.OP_CONNECT);
 
-        a:
         while (true) {
             if (selector.select(1) > 0) {
                 Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
@@ -40,9 +39,11 @@ public class NIOClient {
                         SocketChannel channel = (SocketChannel) next.channel();
                         System.out.println(channel + "可写");
                         channel.write(ByteBuffer.wrap("aaaaaaaaaaa".getBytes()));
-                        next.interestOps(0);
-                        channel.close();
-                        break a;
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
             }

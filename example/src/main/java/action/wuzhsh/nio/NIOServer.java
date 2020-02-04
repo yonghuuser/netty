@@ -20,7 +20,6 @@ public class NIOServer {
                 serverSocketChannel.configureBlocking(false);
                 serverSocketChannel.bind(new InetSocketAddress("127.0.0.1", 8000));
                 serverSocketChannel.register(serverSelector, SelectionKey.OP_ACCEPT);
-                a:
                 while (true) {
                     // 这里如果用 select()，会发现一直阻塞，客户端连接进来不会继续运行
                     if (serverSelector.select() > 0) {
@@ -39,7 +38,6 @@ public class NIOServer {
                                 // 所以依旧可能会继续进入select()， 导致这句代码阻塞，所以下面使用 select(1)，每个毫秒 selector都会唤醒一次
                                 socketChannel.register(clientSelector, SelectionKey.OP_READ);
                                 System.out.println("接收到连接：" + socketChannel.socket());
-                                break a;
                             }
                             iterator.remove();
                         }
@@ -53,28 +51,27 @@ public class NIOServer {
         }).start();
 
         new Thread(() -> {
-            try {
-                a:
-                while (true) {
+            while (true) {
+                try {
                     if (clientSelector.select(1) > 0) {
                         Iterator<SelectionKey> iterator = clientSelector.selectedKeys().iterator();
                         while (iterator.hasNext()) {
                             SelectionKey next = iterator.next();
+                            System.out.println("发生IO事件::" + next.channel());
                             iterator.remove();
                             if (next.isReadable()) {
                                 SocketChannel channel = (SocketChannel) next.channel();
                                 ByteBuffer byteBuffer = ByteBuffer.allocate(16);
                                 channel.read(byteBuffer);
                                 System.out.println(new String(byteBuffer.array()));
-                                break a;
                             }
                         }
                     } else {
                         Thread.sleep(10);
                     }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
             }
         }).start();
     }
