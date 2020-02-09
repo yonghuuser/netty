@@ -251,6 +251,11 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             // 详细可以查看 NioEventLoop 的 processSelectedKey 方法， 使用的 unsafe 为 NioMessageUnsafe
             final Channel child = (Channel) msg;
 
+            // 对于ChannelInitializer，这里虽然加入了childHandler，因为此时 channel.isRegistered() 返回的是false 所以不会
+            // 马上执行ChannelInitializer.initChannel 方法，因为返回的是false，所以addLast中会增加一个 PendingTask，
+            // 此PendingTask的作用就是去执行 initChannel方法，当Channel调用register0(..)[方法在AbstractChannel类中]方法时，
+            // 会设置registered = true，随即调用pipeline.invokeHandlerAddedIfNeeded()，在此方法中会执行
+            // PendingTask（即执行 ChannelInitializer的initChannel方法）
             child.pipeline().addLast(childHandler);
 
             setChannelOptions(child, childOptions, logger);
