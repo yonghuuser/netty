@@ -229,6 +229,9 @@ final class PoolChunk<T> implements PoolChunkMetric {
      */
     private void updateParentsAlloc(int id) {
         while (id > 1) {
+            // 层级下移，比如第11层的某个节点（8K）被分配了，将其父节点（第10层，16K）标记为第11层的节点（16K-8K），
+            // 依次循环，将第9层的节点再标记为第10层，这里是因为 第10层的节点已经被降到了11层，
+            // 可以认为第9层节点在第10层上少了一个子节点，所以可以直接降级为第10层
             int parentId = id >>> 1;
             byte val1 = value(id);
             byte val2 = value(id ^ 1);
