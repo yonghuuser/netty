@@ -325,6 +325,7 @@ final class PoolChunk<T> implements PoolChunkMetric {
         // This is need as we may add it back and so alter the linked-list structure.
         PoolSubpage<T> head = arena.findSubpagePoolHead(normCapacity);
         synchronized (head) {
+            // 从最大层级（11层）分配一个节点（这一层级，默认的节点对应内存为8K），最大层级分配出来node的就是一个page
             int d = maxOrder; // subpages are only be allocated from pages i.e., leaves
             int id = allocateNode(d);
             if (id < 0) {

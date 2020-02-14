@@ -236,6 +236,10 @@ abstract class PoolArena<T> implements PoolArenaMetric {
                 }
             }
             synchronized (this) {
+                // 对于小于 pageSize（8K） 大小的内存，能进入到这里，说明之前没有分配过同类型的subpage，否则直接在上面的
+                // synchronized (head) 处初始化完毕了。
+                // 在 allocateNormal 会先创建这么一个 subpage（其实就是一个page，只不过通过bitmap标记了page中的那些是可用的）,
+                // 并从该 subpage 中选择一块可用的连续内存 分配该 buf 参数使用
                 allocateNormal(buf, reqCapacity, normCapacity);
             }
 
@@ -269,6 +273,7 @@ abstract class PoolArena<T> implements PoolArenaMetric {
         PoolChunk<T> c = newChunk(pageSize, maxOrder, pageShifts, chunkSize);
         long handle = c.allocate(normCapacity);
         assert handle > 0;
+        // 在initBuf中设置 buf 对应的连续内存
         c.initBuf(buf, handle, reqCapacity);
         qInit.add(c);
     }
