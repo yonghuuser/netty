@@ -316,7 +316,7 @@ final class PoolChunk<T> implements PoolChunkMetric {
     /**
      * Create/ initialize a new PoolSubpage of normCapacity
      * Any PoolSubpage created/ initialized here is added to subpage pool in the PoolArena that owns this PoolChunk
-     *
+     * 进到这个方法的时候，说明上层没有找到对应的subpage，在这个方法中创建一个subpage
      * @param normCapacity normalized capacity
      * @return index in memoryMap
      */
@@ -345,6 +345,7 @@ final class PoolChunk<T> implements PoolChunkMetric {
             } else {
                 subpage.init(head, normCapacity);
             }
+            // 这里根据bitmap中的信息找到可用的内存偏移地址（其实就是一个下标）
             return subpage.allocate();
         }
     }

@@ -22,6 +22,9 @@ final class PoolSubpage<T> implements PoolSubpageMetric {
     private final int memoryMapIdx;
     private final int runOffset;
     private final int pageSize;
+    // 一个Subpage其实底层分配的还是一个Page，这里使用bitmap用来标识page中的哪些部分是可用的
+    // 比如此subpage的size为16B，pageSize/16 = 512， bitmap数组的长度为8* long的长度 64 = 512，每个bit记录一个16B是否可用
+    // 注：subpage最小为16B
     private final long[] bitmap;
 
     PoolSubpage<T> prev;
